@@ -20,6 +20,11 @@ trait Conf {
 object JobSparkConf extends Conf{
   val conf = new SparkConf()
     .setAppName("Spark ETL Job").setMaster("local[1]")
+  conf.set("es.index.auto.create", "true")
+     .set("es.nodes", "localhost")
+     .set("es.port", "9200")
+
+
   /*.set("spark.sql.sources.default", "json")
   .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
   .set("spark.sql.tungsten.enabled", "true")

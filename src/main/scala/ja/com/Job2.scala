@@ -1,13 +1,9 @@
 package ja.com
+
 import ja.com.Common.cdxItem
 import ja.conf.JobSparkConf
-
-// import ja.conf._
-/**
-  * Created by Ja on 21/05/2017.
-  */
-
-object Job1 {
+import org.elasticsearch.spark.rdd.EsSpark
+object Job2 {
   def main(args: Array[String]): Unit = {
 
     val s = "com,google)/ 20090831083204 http://www.google.com/ text/html 302 MRIC3B6QBCMMI7MLO76A2P5ONACU4L7H - - 335 26267 EA-TNA-0709-biglotteryfund.org.uk-p-20090831083143-00000.arc.gz"
@@ -21,7 +17,11 @@ object Job1 {
       x.split(" ")(4),x.split(" ")(5), x.split(" ")(6),
        x.split(" ")(7),x.split(" ")(8),x.split(" ")(9))
     )
-    cdxItems.collect().foreach(println)
+
+ //   sc.makeRDD(Seq(numbers, airports)).saveToEs("spark/docs")
+    import ja.conf.JobSparkConf._
+    val rdd = sc.makeRDD(Seq(cdxItems))
+    EsSpark.saveToEs(rdd, "spark/docs")
 
   }
 }
