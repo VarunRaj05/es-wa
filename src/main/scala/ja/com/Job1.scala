@@ -4,7 +4,7 @@ import ja.com.Common.cdxItem
 import ja.conf.JobSparkConf
 // https://github.com/ukwa/warcbase
 //import org.warcbase.spark.matchbox._
-//import org.warcbase.spark.rdd.RecordRDD._
+//import org.warcbase.spark.rdd.RecordRDD._  testing
 
 // import ja.conf._
 /**
