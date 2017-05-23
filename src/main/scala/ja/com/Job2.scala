@@ -13,10 +13,13 @@ object Job2 {
     val txtRDD = JobSparkConf.sc.textFile("C:\\Users\\Ja\\Google Drive\\srcfile\\Note\\srcfile\\EA-TNA-0709-biglotteryfund.org.uk-p-20090831083143-00000.cdx")
     val rddLines = txtRDD.mapPartitionsWithIndex { (idx, iter) => if (idx == 0) iter.drop(1) else iter }
     val cdxItems = rddLines.map(x => cdxItem(x.split(" ")(0)
-      ,x.split(" ")(1),x.split(" ")(2), x.split(" ")(3),
+     ,x.split(" ")(1)
+      ,x.split(" ")(2), x.split(" ")(3),
       x.split(" ")(4),x.split(" ")(5), x.split(" ")(6),
-       x.split(" ")(7),x.split(" ")(8),x.split(" ")(9))
+       x.split(" ")(7),x.split(" ")(8),x.split(" ")(9)
+       )
     )
+    cdxItems.collect().foreach(println)
 
  //   sc.makeRDD(Seq(numbers, airports)).saveToEs("spark/docs")
     import ja.conf.JobSparkConf._

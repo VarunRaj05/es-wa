@@ -20,12 +20,13 @@ trait Conf {
 object JobSparkConf extends Conf{
   val conf = new SparkConf()
     .setAppName("Spark ETL Job").setMaster("local[1]")
-  conf.set("es.index.auto.create", "true")
-     .set("es.nodes", "localhost")
-     .set("es.port", "9200")
+  conf.set("es.index.auto.create", "false")
+     .set("es.cluster", "elasticsearch")
+    .set("es.node", "elasticsearch")
+    .set("es.port", "9200")
+    .set("es.nodes.discovery", "false")
 
-
-  /*.set("spark.sql.sources.default", "json")
+  /*.set("spark.sql.sources.default", "json") Agwal997Rhaw8Z7r6RluMA
   .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
   .set("spark.sql.tungsten.enabled", "true")
   .set("spark.driver.allowMultipleContexts", "true")*/
