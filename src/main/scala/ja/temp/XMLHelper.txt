@@ -1,0 +1,413 @@
+package ja.temp
+
+import java.io.ByteArrayInputStream
+import java.io.InputStream
+import java.io.StringWriter
+import java.util.Properties
+import java.util.StringTokenizer
+import javax.xml.parsers.DocumentBuilder
+import javax.xml.parsers.DocumentBuilderFactory
+import javax.xml.transform.Transformer
+import javax.xml.transform.TransformerException
+import javax.xml.transform.TransformerFactory
+import javax.xml.transform.dom.DOMResult
+import javax.xml.transform.dom.DOMSource
+import javax.xml.transform.stream.StreamSource
+import org.apache.xml.serialize.OutputFormat
+import org.apache.xml.serialize.XMLSerializer
+import org.apache.xpath.XPathAPI
+import org.w3c.dom.Document
+import org.w3c.dom.Element
+import org.w3c.dom.Node
+import org.w3c.dom.NodeList
+import org.w3c.dom.Text
+import org.w3c.dom.traversal.NodeIterator
+
+object XMLHelper {
+  private[temp] var debugFlag = false
+
+  def serialize(doc: Document): String = {
+    logInfo("serialize(Document)")
+    try {
+      val sw = new StringWriter
+      val oFormat = new Nothing(doc)
+      oFormat.setIndenting(true)
+      val xmlSer = new Nothing(sw, oFormat)
+      xmlSer.serialize(doc)
+      return sw.getBuffer.toString
+    } catch {
+      case e: Exception =>
+        logInfo("Error: serialize(Document): " + e.getMessage)
+        e.printStackTrace()
+    }
+    ""
+  }
+
+  // test
+  def main(args: Array[String]): Unit = {
+    val sb = new StringBuffer
+    sb.append("<?xml version=\"1.0\"?>").append("<BillDispatch2>").append("<ControlInfo2>").append("<ExternalID2>").append("9840209763").append("</ExternalID2>").append("<ExternalIDType2>").append("11").append("</ExternalIDType2>").append("</ControlInfo2>").append("<BillDispMeth2>").append("yes").append("</BillDispMeth2>").append("</BillDispatch2>")
+    //System.out.println(sb.toString());
+    val dataHelper = new XMLHelper(true)
+    dataHelper.createDocument("BillDispatch1")
+    val node = dataHelper.createElement("ControlInfo")
+    dataHelper.addChild("/BillDispatch1", node)
+    dataHelper.addTextNode("/BillDispatch1/ControlInfo", "ExternalID", "9840209763")
+    dataHelper.addTextNode("/BillDispatch1", "BillDispMeth", "YES")
+    dataHelper.addTextNode("/BillDispatch1/ControlInfo", "ExternalID", "9880101320")
+    dataHelper.addTextNode("/BillDispatch1", "BillDispMeth", "NO")
+    dataHelper.print()
+    logInfo("ExternalID: " + dataHelper.getElemValue(dataHelper.getRoot, "/BillDispatch1/ControlInfo/ExternalID"))
+    logInfo("BillDispMeth: " + dataHelper.getElemValue(dataHelper.getRoot, "/BillDispatch1/BillDispMeth"))
+    val dataHelper2 = new XMLHelper(true)
+    dataHelper2.load(sb.toString)
+    dataHelper.mergeDocument(dataHelper2.getDocument)
+    val xml = dataHelper.serialize
+    System.out.println("After import:\n" + xml)
+  }
+
+  private[temp] def logInfo(s: String) = if (debugFlag) System.out.println(s)
+}
+
+class XMLHelper() {
+  XMLHelper.debugFlag = false
+  initialize()
+  private[temp] var xpathAPI = null
+  private[temp] var transformerFactory = null
+  private[temp] var docBuilder = null
+  private[temp] var document = null
+
+  def this(yesNo: Boolean) {
+    this()
+    XMLHelper.debugFlag = yesNo
+    initialize()
+  }
+
+  private def initialize() = try { // init XPath
+    xpathAPI = new Nothing
+    // init Parser
+    val docFactory = DocumentBuilderFactory.newInstance
+    docFactory.setNamespaceAware(true)
+    docBuilder = docFactory.newDocumentBuilder
+    initTransformer()
+  } catch {
+    case e: Exception =>
+      XMLHelper.logInfo("Error: initialize(): " + e.getMessage)
+      e.printStackTrace()
+  }
+
+  private[temp] def initTransformer() = try {
+    val key = "javax.xml.transform.TransfomerFactory"
+    val value = "org.apache.xalan.processor.TransformerFactoryImpl"
+    System.setProperty(key, value)
+    transformerFactory = TransformerFactory.newInstance
+  } catch {
+    case e: Exception =>
+      XMLHelper.logInfo("Error: initTransformer(): " + e.getMessage)
+      e.printStackTrace()
+  }
+
+  def load(xmlSource: String): Unit = {
+    XMLHelper.logInfo("load(String)")
+    try {
+      val inStream = new ByteArrayInputStream(xmlSource.getBytes)
+      document = docBuilder.parse(inStream)
+    } catch {
+      case e: Exception =>
+        document = null
+        XMLHelper.logInfo("Error: load(String): " + e.getMessage)
+        e.printStackTrace()
+    }
+  }
+
+  def load(xmlStream: InputStream): Unit = {
+    XMLHelper.logInfo("load(InputStream)")
+    try document = docBuilder.parse(xmlStream)
+    catch {
+      case e: Exception =>
+        document = null
+        XMLHelper.logInfo("Error: load(String): " + e.getMessage)
+        e.printStackTrace()
+    }
+  }
+
+  def getRoot: Element = document.getDocumentElement
+
+  def getDocument: Document = document
+
+  def createDocument(docElemName: String): Unit = {
+    document = docBuilder.newDocument
+    val node = document.createElement(docElemName)
+    document.appendChild(node)
+  }
+
+  def setAttribute(name: String, value: String): Unit = if (name != null && value != null) document.getDocumentElement.setAttribute(name, value)
+
+  def setElementAttribute(elemName: String, name: String, value: String): Unit = {
+    val elem = getElem(elemName).asInstanceOf[Element]
+    elem.setAttribute(name, value)
+  }
+
+  def createElement(name: String): Node = document.createElement(name).asInstanceOf[Node]
+
+  def createElement(namespaceURI: String, elemName: String): Node = document.createElementNS(namespaceURI, elemName).asInstanceOf[Node]
+
+  def addChild(child: String): Node = {
+    val node = createElement(child)
+    document.getDocumentElement.appendChild(node)
+    node
+  }
+
+  def addChild(parent: String, child: Node): Node = {
+    val node = getElem(parent)
+    node.appendChild(child)
+  }
+
+  def createText(value: String): Text = {
+    val tNode = document.createTextNode(value)
+    tNode
+  }
+
+  def addTextChild(parent: Node, child: Text): Unit = { //		Node node = getElem(parent);
+    parent.appendChild(child)
+  }
+
+  def addTextNode(parent: String, elemName: String, value: String): Unit = {
+    val newNode = createElement(elemName)
+    val childNode = addChild(parent, newNode)
+    val tNode = createText(value)
+    addTextChild(childNode, tNode)
+  }
+
+  def addTextNode(parent: Node, elemName: String, value: String): Unit = {
+    val newNode = createElement(elemName)
+    val childNode = parent.appendChild(newNode)
+    val tNode = createText(value)
+    addTextChild(childNode, tNode)
+  }
+
+  def replaceTextNode(parent: Node, value: String): Unit = {
+    val childList = parent.getChildNodes
+    if (childList != null) {
+      var i = 0
+      while ( {
+        i < childList.getLength
+      }) {
+        val currNode = childList.item(i)
+        if (currNode.getNodeType == Node.TEXT_NODE) currNode.setNodeValue(value)
+        {
+          i += 1; i - 1
+        }
+      }
+    }
+  }
+
+  @throws[TransformerException]
+  def fetchNodeIterator(start: Node, xpath: String): NodeIterator = {
+    val nodeIter = XPathAPI.selectNodeIterator(start, xpath)
+    nodeIter
+  }
+
+  /*
+     * getElem(String xpath)
+     *
+     * Always specify xpath from root !
+     */ def getElem(xpath: String): Node = {
+    XMLHelper.logInfo("getElem(String)")
+    var target = null
+    try {
+      XMLHelper.logInfo("DocumentElement: " + document.getDocumentElement.getNodeName)
+      target = XPathAPI.selectSingleNode(document.getDocumentElement, xpath)
+    } catch {
+      case e: Exception =>
+        XMLHelper.logInfo("Error: getElem(String): " + e.getMessage)
+        e.printStackTrace()
+    }
+    target
+  }
+
+  def getAllElemValue(start: Node, xpath: String): Array[String] = {
+    XMLHelper.logInfo("getAllElemValue(Node, String)")
+    var vals = null
+    try {
+      val nodes = XPathAPI.selectNodeList(start, xpath)
+      if (nodes != null) {
+        XMLHelper.logInfo("NodeList is not NULL")
+        if (nodes.getLength > 0) {
+          vals = new Array[String](nodes.getLength)
+          var i = 0
+          while ( {
+            i < nodes.getLength
+          }) {
+            vals(i) = nodes.item(i).getFirstChild.asInstanceOf[Text].getData
+            {
+              i += 1; i - 1
+            }
+          }
+        }
+      }
+    } catch {
+      case e: Exception =>
+        XMLHelper.logInfo("Error: getAllElemValue(Node, String): " + e.getMessage)
+        e.printStackTrace()
+    }
+    vals
+  }
+
+  def getPIAttrValues: Properties = {
+    XMLHelper.logInfo("getPIAttrValues()")
+    val props = new Properties
+    try {
+      val node = document.getFirstChild
+      XMLHelper.logInfo("Node Name: " + node.getNodeName)
+      if (node.getNodeType == Node.PROCESSING_INSTRUCTION_NODE) {
+        val value = node.getNodeValue
+        val tokenizer1 = new StringTokenizer(value, " ")
+        while ( {
+          tokenizer1.hasMoreTokens
+        }) {
+          val attr = tokenizer1.nextToken
+          val tokenizer2 = new StringTokenizer(attr, "=")
+          while ( {
+            tokenizer2.hasMoreTokens
+          }) {
+            val attrName = tokenizer2.nextToken
+            XMLHelper.logInfo("Key = " + attrName)
+            val attrValue = tokenizer2.nextToken
+            XMLHelper.logInfo("Value = " + attrValue)
+            props.put(attrName, attrValue)
+          }
+        }
+      }
+    } catch {
+      case e: Exception =>
+        XMLHelper.logInfo("Error: getPIAttrValues(): " + e.getMessage)
+        e.printStackTrace()
+    }
+    props
+  }
+
+  def getElements: Array[Node] = {
+    XMLHelper.logInfo("getElements()")
+    var nodes = null
+    try {
+      val childList = document.getChildNodes
+      val length = childList.getLength
+      nodes = new Array[Node](length)
+      var i = 0
+      while ( {
+        i < length
+      }) {
+        val currNode = childList.item(i)
+        if (currNode.getNodeType == Node.ELEMENT_NODE) nodes(i) = currNode
+        {
+          i += 1; i - 1
+        }
+      }
+    } catch {
+      case e: Exception =>
+        XMLHelper.logInfo("Error: getElem(String): " + e.getMessage)
+        e.printStackTrace()
+    }
+    nodes
+  }
+
+  def getElemValue(start: Node, xpath: String): String = {
+    XMLHelper.logInfo("getElemValue(Node, String)")
+    try {
+      val target = XPathAPI.selectSingleNode(start, xpath)
+      if (target != null) {
+        val tNode = target.getFirstChild.asInstanceOf[Text]
+        if (tNode == null) return ""
+        else {
+          XMLHelper.logInfo("Got 'Text' using " + xpath + " " + tNode.getData)
+          return tNode.getData
+        }
+      }
+      else return null
+    } catch {
+      case e: Exception =>
+        XMLHelper.logInfo("Error: getElemValue(Node, String): " + e.getMessage)
+        e.printStackTrace()
+    }
+    ""
+  }
+
+  def seekElemValue(xmlSource: String, xpath: String): String = {
+    XMLHelper.logInfo("seekElemValue(String, String)")
+    try {
+      load(xmlSource)
+      return getElemValue(document.getDocumentElement.asInstanceOf[Node], xpath)
+    } catch {
+      case e: Exception =>
+        XMLHelper.logInfo("Error: seekElemValue(String, String): " + e.getMessage)
+        e.printStackTrace()
+    }
+    ""
+  }
+
+  def mergeDocument(newDoc: Document): Unit = {
+    XMLHelper.logInfo("mergeDocument(Document)")
+    try {
+      val impNode = document.importNode(newDoc.getDocumentElement, true)
+      getRoot.appendChild(impNode)
+      //System.out.println("impNode.NodeName: "+impNode.getNodeName());
+    } catch {
+      case e: Exception =>
+        XMLHelper.logInfo("Error: mergeDocument(Document): " + e.getMessage)
+        e.printStackTrace()
+    }
+  }
+
+  def serialize: String = {
+    XMLHelper.logInfo("serialize()")
+    try {
+      val sw = new StringWriter
+      val oFormat = new Nothing(document)
+      oFormat.setIndenting(true)
+      val xmlSer = new Nothing(sw, oFormat)
+      xmlSer.serialize(document)
+      return sw.getBuffer.toString
+    } catch {
+      case e: Exception =>
+        XMLHelper.logInfo("Error: serialize(): " + e.getMessage)
+        e.printStackTrace()
+    }
+    ""
+  }
+
+  def transform(xslStream: InputStream): Document = {
+    val xmlIn = new DOMSource(document)
+    val xmlOut = new DOMResult
+    try {
+      val transformer = transformerFactory.newTransformer(new StreamSource(xslStream))
+      transformer.transform(xmlIn, xmlOut)
+    } catch {
+      case e: Exception =>
+        XMLHelper.logInfo("Error: transform(): " + e.getMessage)
+    }
+    xmlOut.getNode.asInstanceOf[Document]
+  }
+
+  def transform(t: Transformer): Document = {
+    val xmlIn = new DOMSource(document)
+    val xmlOut = new DOMResult
+    try //Transformer transformer = transformerFactory.newTransformer(new StreamSource(xslStream));
+    t.transform(xmlIn, xmlOut)
+    catch {
+      case e: Exception =>
+        XMLHelper.logInfo("Error: transform(): " + e.getMessage)
+    }
+    xmlOut.getNode.asInstanceOf[Document]
+  }
+
+  def print(): Unit = {
+    XMLHelper.logInfo("print()")
+    System.out.println("XML = \n" + serialize)
+  }
+
+  /**
+    * @param document
+    */
+  def setDocument(document: Document): Unit = this.document = document
+}

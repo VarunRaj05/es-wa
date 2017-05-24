@@ -1,0 +1,42 @@
+package ja.temp
+
+object FieldSource {
+  val SEARCH_TYPE_SIMPLE_REGEX = 1
+  val SEARCH_TYPE_OFFSET_LENGTH = 2
+  val SEARCH_TYPE_OFFSET_TERMINATION = 3
+  val SEARCH_TYPE_REGEX_OFFSET_LENGTH = 4
+  val SEARCH_TYPE_REGEX_OFFSET_TERMINATION = 5
+}
+
+class FieldSource {
+  private var searchType = 0
+  private var offset = 0
+  private var length = 0
+  private var fieldName = null
+  private var regex = null
+  private var terminatingChar = null
+
+  def getSearchType: Int = searchType
+
+  def setSearchType(searchType: Int): Unit = this.searchType = searchType
+
+  def getLength: Int = length
+
+  def setLength(length: Int): Unit = this.length = length
+
+  def getTerminatingChar: String = terminatingChar
+
+  def setTerminatingChar(terminatingChar: String): Unit = this.terminatingChar = terminatingChar
+
+  def getOffset: Int = offset
+
+  def setOffset(offset: Int): Unit = this.offset = offset
+
+  def getRegex: String = regex
+
+  def setRegex(regex: String): Unit = this.regex = regex
+
+  def getFieldName: String = fieldName
+
+  def setFieldName(fieldName: String): Unit = this.fieldName = fieldName
+}

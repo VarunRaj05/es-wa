@@ -1,0 +1,199 @@
+package ja.temp
+
+import java.io.BufferedReader
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileReader
+import java.util
+import java.util.ResourceBundle
+import java.util.regex.Matcher
+import java.util.regex.Pattern
+import org.w3c.dom.NamedNodeMap
+import org.w3c.dom.Node
+import org.w3c.dom.NodeList
+
+object TExtractor {
+  private val GLOBAL_CONFIGURATION = ResourceBundle.getBundle("config")
+
+  @throws[Exception]
+  def main(args: Array[String]): Unit = {
+    val processor = new TExtractor
+    val br = new BufferedReader(new FileReader("/home/dev/one.txt"))
+    val sb = new StringBuffer
+    var content = null
+    while ( {
+      (content = br.readLine) != null
+    }) sb.append(content + "\n")
+    br.close()
+    processor.doExtract("Source1", sb.toString)
+  }
+}
+
+class TExtractor @throws[Exception]
+() {
+  init()
+  private var hmMasterFields = null
+  private var hmFieldSource = null
+
+  //TODO to complete obj piece
+  @throws[Exception]
+  def init(): Unit = {
+    val sourcesXmlFile = TExtractor.GLOBAL_CONFIGURATION.getString("xml.file.sources")
+    val xmlHelper = new XMLHelper
+    xmlHelper.load(new FileInputStream(new File(sourcesXmlFile)))
+    var roots = xmlHelper.getElements
+    var rootTag = roots(0)
+    val sources = rootTag.getChildNodes
+    var i = 0
+    while ( {
+      i < sources.getLength
+    }) {
+      val sourceNode = sources.item(i)
+      if (sourceNode.getNodeType == Node.ELEMENT_NODE) { // its a source tag
+        val sourceName = sourceNode.getAttributes.item(0).getNodeValue
+        val fieldMap = new util.HashMap[String, FieldSource]
+        var j = 0
+        while ( {
+          j < sourceNode.getChildNodes.getLength
+        }) {
+          val fieldNode = sourceNode.getChildNodes.item(j)
+          if (fieldNode.getNodeType == Node.ELEMENT_NODE) {
+            val fs = new FieldSource
+            val fieldAttribs = fieldNode.getAttributes
+            fs.setFieldName(fieldAttribs.getNamedItem("name").getNodeValue)
+            fs.setSearchType(fieldAttribs.getNamedItem("searchtype").getNodeValue.toInt)
+            fs.getSearchType match {
+              case FieldSource.SEARCH_TYPE_SIMPLE_REGEX =>
+                fs.setRegex(fieldAttribs.getNamedItem("regex").getNodeValue)
+                fs.setOffset(fieldAttribs.getNamedItem("offset").getNodeValue.toInt)
+                break //todo: break is not supported
+              case FieldSource.SEARCH_TYPE_OFFSET_LENGTH =>
+                fs.setOffset(fieldAttribs.getNamedItem("offset").getNodeValue.toInt)
+                fs.setLength(fieldAttribs.getNamedItem("length").getNodeValue.toInt)
+                break //todo: break is not supported
+              case FieldSource.SEARCH_TYPE_OFFSET_TERMINATION =>
+                fs.setRegex(fieldAttribs.getNamedItem("regex").getNodeValue)
+                fs.setTerminatingChar(fieldAttribs.getNamedItem("termination").getNodeValue)
+                break //todo: break is not supported
+              case FieldSource.SEARCH_TYPE_REGEX_OFFSET_LENGTH =>
+                fs.setRegex(fieldAttribs.getNamedItem("regex").getNodeValue)
+                fs.setOffset(fieldAttribs.getNamedItem("offset").getNodeValue.toInt)
+                fs.setLength(fieldAttribs.getNamedItem("length").getNodeValue.toInt)
+                fs.setTerminatingChar(fieldAttribs.getNamedItem("termination").getNodeValue)
+                break //todo: break is not supported
+              case FieldSource.SEARCH_TYPE_REGEX_OFFSET_TERMINATION =>
+                fs.setRegex(fieldAttribs.getNamedItem("regex").getNodeValue)
+                fs.setOffset(fieldAttribs.getNamedItem("offset").getNodeValue.toInt)
+                fs.setTerminatingChar(fieldAttribs.getNamedItem("termination").getNodeValue)
+                break //todo: break is not supported
+            }
+            fieldMap.put(fs.getFieldName, fs)
+          }
+          {
+            j += 1; j - 1
+          }
+        }
+        if (hmFieldSource == null) hmFieldSource = new util.HashMap[String, util.HashMap[String, FieldSource]]
+        hmFieldSource.put(sourceName, fieldMap)
+      }
+      {
+        i += 1; i - 1
+      }
+    }
+    val candidateFieldsXmlFile = TExtractor.GLOBAL_CONFIGURATION.getString("xml.file.fields")
+    xmlHelper.load(new FileInputStream(new File(candidateFieldsXmlFile)))
+    roots = xmlHelper.getElements
+    rootTag = roots(0)
+    val candidateFields = rootTag.getChildNodes
+    var i = 0
+    while ( {
+      i < candidateFields.getLength
+    }) {
+      val fieldNode = candidateFields.item(i)
+      if (fieldNode.getNodeType == Node.ELEMENT_NODE) {
+        val cf = new Field
+        cf.setFieldName(fieldNode.getAttributes.getNamedItem("name").getNodeValue)
+        cf.setFieldType(fieldNode.getAttributes.getNamedItem("type").getNodeValue.toInt)
+        //          	  	NodeList fieldDetails = fieldNode.getChildNodes();
+        //          	  	for (int j = 0; j < fieldDetails.getLength(); j++) {
+        //					Node detailNode = fieldDetails.item(j);
+        //					if(detailNode.getNodeType() == Node.ELEMENT_NODE){
+        //						if("db".equalsIgnoreCase(detailNode.getNodeName())){
+        //							cf.setTableName(detailNode.getAttributes().getNamedItem("table").getNodeValue());
+        //							cf.setColumnName(detailNode.getAttributes().getNamedItem("col").getNodeValue());
+        //							cf.setColumnType(detailNode.getAttributes().getNamedItem("dbtype").getNodeValue());
+        //						}else if("ref".equalsIgnoreCase(detailNode.getNodeName())){
+        //							if(cf.getFieldType() == Field.FIELD_TYPE_REFERENCE){
+        //								cf.setReferenceQuery(detailNode.getAttributes().getNamedItem("query").getNodeValue());
+        //							}
+        //						}
+        //					}
+        //				}
+        if (hmMasterFields == null) hmMasterFields = new util.HashMap[String, Field]
+        hmMasterFields.put(cf.getFieldName, cf)
+      }
+      {
+        i += 1; i - 1
+      }
+    }
+    System.out.println("Initialized...")
+  }
+
+  def doExtract(source: String, content: String): Unit = {
+    System.out.println("Beginning extraction!")
+    val fieldvalues = new util.HashMap[String, String]
+    val hm = hmFieldSource.get(source + "")
+    import scala.collection.JavaConversions._
+    for (key <- hm.keySet) {
+      val fs = hm.get(key)
+      fieldvalues.put(fs.getFieldName, getFieldData(fs, content))
+    }
+    //TODO need to implement post-extraction cleansing
+    System.out.println("EXTRACTED INFO\n " + fieldvalues)
+  }
+
+  private def getFieldData(fs: FieldSource, content: String) = {
+    if (fs.getSearchType == FieldSource.SEARCH_TYPE_SIMPLE_REGEX) {
+      val pat = Pattern.compile(fs.getRegex)
+      val mat = pat.matcher(content)
+      var returnValue = null
+      while ( {
+        mat.find
+      }) returnValue = mat.group
+      return returnValue
+    }
+    else if (fs.getSearchType == FieldSource.SEARCH_TYPE_OFFSET_LENGTH) return content.substring(fs.getOffset, fs.getOffset + fs.getLength)
+    else if (fs.getSearchType == FieldSource.SEARCH_TYPE_OFFSET_TERMINATION) return content.substring(fs.getOffset, content.indexOf(fs.getTerminatingChar, fs.getOffset))
+    else if (fs.getSearchType == FieldSource.SEARCH_TYPE_REGEX_OFFSET_LENGTH) {
+      val pat = Pattern.compile(fs.getRegex)
+      val mat = pat.matcher(content)
+      var end = 0
+      while ( {
+        mat.find
+      }) end = mat.end
+      content = content.substring(end)
+      return content.substring(fs.getOffset, fs.getOffset + fs.getLength)
+    }
+    else if (fs.getSearchType == FieldSource.SEARCH_TYPE_REGEX_OFFSET_TERMINATION) {
+      val pat = Pattern.compile(fs.getRegex)
+      val mat = pat.matcher(content)
+      var end = 0
+      while ( {
+        mat.find
+      }) end = mat.end
+      content = content.substring(end)
+      var temp = null
+      try if (fs.getTerminatingChar.startsWith("\\")) temp = content.substring(fs.getOffset, content.indexOf("\n", fs.getOffset))
+      else if (content.indexOf(fs.getTerminatingChar) != -1) {
+        temp = content.substring(fs.getOffset, content.indexOf(fs.getTerminatingChar, fs.getOffset))
+        temp = temp.replaceAll("[+]", "").trim
+      }
+      catch {
+        case e: Exception =>
+          e.printStackTrace()
+      }
+      return temp
+    }
+    null
+  }
+}

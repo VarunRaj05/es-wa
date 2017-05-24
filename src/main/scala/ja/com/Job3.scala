@@ -26,6 +26,7 @@ object Job3 {
 //      )
      //   v1 = matchingLineAndLineNumberTuples12
         //matchingLineAndLineNumberTuples12
+
   }
 
 
@@ -33,6 +34,7 @@ object Job3 {
 
 
 /*
+  val txtRDD = s
 if (s != null && s != "" && s.toString.indexOf("/") >= 0) {
 
 val V2 =
@@ -44,5 +46,5 @@ s.substring(s.lastIndexOf("/") + 1, 10)
 )
 retvalue = V2
 }
-
-retvalue*/
+retvalue
+*/

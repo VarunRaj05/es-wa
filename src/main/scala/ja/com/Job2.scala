@@ -2,6 +2,7 @@ package ja.com
 
 import ja.com.Common.cdxItem
 import ja.conf.JobSparkConf
+import org.elasticsearch.spark.rdd.EsSpark
 object Job2 {
   def main(args: Array[String]): Unit = {
 
@@ -20,14 +21,9 @@ object Job2 {
     )
     cdxItems.collect().foreach(println)
 
- //   sc.makeRDD(Seq(numbers, airports)).saveToEs("spark/docs")
     import ja.conf.JobSparkConf._
     val rdd = sc.makeRDD(Seq(cdxItems))
-//    EsSpark.saveToEs(rdd, "spark/docs")
 
-// , Map("es.nodes" -> "node-1")
-    import org.elasticsearch.spark.rdd.EsSpark
-   // 82.38.61.10. 10.0.5.15
     EsSpark.saveToEs(rdd, "spark/docs" , Map("es.nodes" -> "192.168.0.56"))
   }
 }

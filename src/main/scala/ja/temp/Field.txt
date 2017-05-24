@@ -1,0 +1,29 @@
+package ja.temp
+
+object Field {
+  val FIELD_TYPE_DIRECT = 1
+  val FIELD_TYPE_REFERENCE = 2
+}
+
+class Field {
+  private var fieldName = null
+  private var fieldType = 0
+  private var targetMethod = null
+  private var paramType = null
+
+  def getFieldName: String = fieldName
+
+  def setFieldName(fieldName: String): Unit = this.fieldName = fieldName
+
+  def getFieldType: Int = fieldType
+
+  def setFieldType(fieldType: Int): Unit = this.fieldType = fieldType
+
+  def getTargetMethod: String = targetMethod
+
+  def setTargetMethod(targetMethod: String): Unit = this.targetMethod = targetMethod
+
+  def getParamType: String = paramType
+
+  def setParamType(paramType: String): Unit = this.paramType = paramType
+}
