@@ -16,22 +16,46 @@ object Job3Filter {
     turl.take(1000).foreach(println)
     matchingLineAndLineNumberTuples.take(1000).foreach(println)
 
-//    var v1 = ""
-//
-//    var matchingLineAndLineNumberTuples12 =
-//      if (txtRDD != null &&
-//        txtRDD != "" &&
-//        txtRDD.toString.indexOf("20090831083146") >= 0 &&
-//        txtRDD.toString.indexOf("http://www.biglotteryfund.org.uk/robots.txt") >= 0
-//      )
-     //   v1 = matchingLineAndLineNumberTuples12
-        //matchingLineAndLineNumberTuples12
+    // *********************************
+//    val rddLines = txtRDD.mapPartitionsWithIndex {
+//      (idx, iter) => if (idx == 0) iter.drop(1) else iter }
+//    val cdxItems = rddLines.map(x => cdxItem(x))
+//    cdxItems.collect().foreach(println)
+ // *********************************
 
+/*    var rows = 0
+    var loopvar = cdxItems
+    var loopIt = loopvar.iterator
+      rows = loopvar.length
+
+    while (loopIt.hasNext) {
+      val loopR = loopIt.next()
+      val qLoopLabel = loopR._2
+      val loopvarR = loopR
+
+      println("loopvarR" )
+      println("loopvarR =" + loopvarR)
+    }*/
+
+    // *********************************
   }
+}
+/*
+    var v1 = ""
 
+    var matchingLineAndLineNumberTuples12 =
+      if (txtRDD != null &&
+        txtRDD != "" &&
+        txtRDD.toString.indexOf("20090831083146") >= 0 &&
+        txtRDD.toString.indexOf("http://www.biglotteryfund.org.uk/robots.txt") >= 0
+      )
+        v1 = matchingLineAndLineNumberTuples12
+        matchingLineAndLineNumberTuples12
+  }
 
 }
 
+*/
 
 /*
   val txtRDD = s

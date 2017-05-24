@@ -3,6 +3,7 @@ package ja.temp
 import ja.com.Common.cdxItem
 import ja.conf.JobSparkConf
 import org.elasticsearch.spark.rdd.EsSpark
+
 object Job2SaveToES {
   def main(args: Array[String]): Unit = {
 
