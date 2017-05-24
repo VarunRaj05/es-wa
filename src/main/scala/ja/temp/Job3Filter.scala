@@ -1,8 +1,8 @@
-package ja.com
+package ja.temp
 
 import ja.conf.JobSparkConf
 
-object Job3 {
+object Job3Filter {
   def main(args: Array[String]): Unit = {
 
     val txtRDD = JobSparkConf.sc.textFile("C:\\Users\\Ja\\Google Drive\\srcfile\\Note\\srcfile\\EA-TNA-0709-biglotteryfund.org.uk-p-20090831083143-00000.arc")
