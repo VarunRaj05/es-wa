@@ -21,10 +21,10 @@ object JobSparkConf extends Conf{
   val conf = new SparkConf()
     .setAppName("Spark ETL Job").setMaster("local[1]")
   conf.set("es.index.auto.create", "false")
-     .set("es.cluster", "elasticsearch")
-    .set("es.node", "elasticsearch")
+     .set("es.cluster", "my-application")
+    .set("es.node", "192.168.0.56")
     .set("es.port", "9200")
-    .set("es.nodes.discovery", "false")
+   // .set("es.nodes.discovery", "false")
 
   /*.set("spark.sql.sources.default", "json") Agwal997Rhaw8Z7r6RluMA
   .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
