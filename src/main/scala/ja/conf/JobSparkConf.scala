@@ -21,7 +21,7 @@ object JobSparkConf extends Conf{
   val conf = new SparkConf()
     .setAppName("Spark ETL Job").setMaster("local[1]")
   conf.set("es.index.auto.create", "false")
-     .set("es.cluster", "pip6fRVRQkGRE4PQ9yqXKA")
+     .set("es.cluster", "my-application")  // TODO: my-application pip6fRVRQkGRE4PQ9yqXKA
     .set("es.node", "192.168.0.56")
     .set("es.port", "9200")
    // .set("es.nodes.discovery", "false")

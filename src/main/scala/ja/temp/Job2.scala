@@ -1,4 +1,4 @@
-package ja.com
+package ja.temp
 
 import ja.com.Common.cdxItem
 import ja.conf.JobSparkConf
