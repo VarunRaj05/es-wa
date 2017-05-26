@@ -13,6 +13,28 @@ import scala.collection.mutable.ListBuffer
 
 object Job1 {
   case class t(x : Long, y: String)
+  case class allLines( linenumber: Long  , isvalidheader:Boolean ,isheader:Boolean, url:String, urltime:String, mime:String , line:String)
+  import java.util.regex.Pattern
+  val dataLinePattern = Pattern.compile("(\\d{14})")
+
+  def isCurrentLineIsValidHeader(line:String, lstMimes: List[String] ) : Boolean  = {
+
+      if(lstMimes.exists(line.contains)) {
+        val matcher: Matcher = dataLinePattern.matcher(line)
+        matcher.find
+
+    }
+    else {
+      false
+    }
+  }
+  def isCurrentLineIsHeader(line:String) : Boolean  = {
+      val valid1 = (line.split(" ").length > 2)
+      val matcher: Matcher = dataLinePattern.matcher(line)
+      matcher.find && valid1
+
+  }
+
   def main(args: Array[String]): Unit = {
 
     val s = "com,google)/ 20090831083204 http://www.google.com/ text/html 302 MRIC3B6QBCMMI7MLO76A2P5ONACU4L7H - - 335 26267 EA-TNA-0709-biglotteryfund.org.uk-p-20090831083143-00000.arc.gz"
@@ -65,6 +87,7 @@ object Job1 {
     joinedDF.registerTempTable("joinedTable")
     joinedDF.show(100)
 
+    /// Arc file starts here
 
 
     val txtArcRDD = JobSparkConf.sc.textFile("C:\\Users\\Ja\\Google Drive\\srcfile\\Note\\srcfile\\EA-TNA-0709-biglotteryfund.org.uk-p-20090831083143-00000.arc")
@@ -72,7 +95,7 @@ object Job1 {
     import JobSparkConf.sqlContext.implicits._
     val mainDF = indexedArcRDD.toDF("line", "linenumber")
     mainDF.registerTempTable("tmp1")
-    val query  = "Select tmp1.linenumber, tmp1.line from tmp1 " +
+    val query  = "Select tmp1.linenumber + 1 linenumber, tmp1.line from tmp1 " +
       " join (select linenumber from tmp1 where trim(line) = '') as t2 " +
       " on tmp1.linenumber = t2.linenumber + 1 where trim(tmp1.line) <> '' "
       //" left join (select distinct m_mime_type_of_original_document mime from joinedTable) as t3 "
@@ -94,89 +117,46 @@ object Job1 {
 
     val f1= JobSparkConf.sqlContext.sql(query).select("linenumber", "line").rdd
 
+    val linenumbersBtwSpaces = f1.collect().map( x => x.getAs[Long]("linenumber"))
+     println("line number for space lines")
+    linenumbersBtwSpaces.sorted.take(100).foreach(println)
+
     println("fk2")
     import java.util.regex.Pattern
     val pattern = Pattern.compile("(\\d{14})")
-    val f4 = f1.map(x => {
+
+    val f4 = mainDF.map(x => {
       val ln = x.getAs[Long]("linenumber")
       val line = x.getAs[String]("line")
-      if(lstMimes.exists(line.contains)) {
-        val matcher: Matcher = pattern.matcher(line)
-        if(matcher.find)
-          t(ln, line)
-        else
-          t(0, "")
+      var isvalidheader = isCurrentLineIsValidHeader(line, lstMimes.toList)
+      var isheader = isCurrentLineIsHeader(line)
+    var urltime = ""
+      var url = ""
+      var mimetype = ""
+      if(isvalidheader){
+          val arr = line.split(" ")
+        url = arr(0)
+        urltime = arr(2)
+        mimetype = arr(3)
       }
-      else {
-        t(0, "")
-      }
-    }).toDF()
 
-    val datalines = f4.filter(!f4("x").equalTo(0) ).sort(f4("x"))
-    datalines.show(1000, truncate = false)
+      allLines( ln+1  , isvalidheader ,isheader,url,urltime,mimetype,  line)
 
-    // http://www.biglotteryfund.org.uk/index/sifr-print.css 77.108.154.94 20090831083540 text/css 706
+    }).toDF().registerTempTable("fk4")
+    println("key - values")
+    val arcDF = JobSparkConf.sqlContext.sql("select * from fk4 order by linenumber")
+    arcDF.show(1000)
+    //joinedTable
+    val finalDF1 = JobSparkConf.sqlContext.sql("select distinct fk4.* from fk4 " +
+      " join joinedTable on trim(joinedTable.b_date) = trim(fk4.urltime)  " +
+      " and joinedTable.m_mime_type_of_original_document = trim(fk4.mime) " +
+      " and fk4.url like concat('%',joinedTable.New_URL,'%')  " +
+      "order by fk4.linenumber").toDF()
 
-   /* val datalines = f1.collect().toMap() (x => {
-      if(lstMimes.contains(x.getAs[String]("line")))
-        Some(x)
-      else
-        None
-    })*/
+    finalDF1.registerTempTable("cdxJoinArcTable")
 
+    finalDF1.printSchema()
 
-    /*
-    f1.registerTempTable("firstJtoArc")
-    println(f1.count())
-
-
-
-
-    //val f3 = f1.join(dfMimes, f1("line").contains(dfMimes("m")), "inner").select(f1("line"), f1("linenumber"))
-    f3.show(100)
-
-    val query2  = "Select firstJtoArc.linenumber, firstJtoArc.line from firstJtoArc " +
-      " join mimestable "
-    " on firstJtoArc.line like concat('%',mimestable.m,'%')"
-
-    val f2= JobSparkConf.sqlContext.sql(query2)
-    println("**** f1")
-    f1.show(30)
-    println("**** f2")
-    f2.show(30)*/
-
-//http://www.google.com/ 209.85.227.99 20090831083204 text/html
-
-    val lookupFile= JobSparkConf.sc.textFile("C:\\Users\\Ja\\Google Drive\\srcfile\\Note\\srcfile\\EA-TNA-0309-3719-0-20090518081242-00000.arc")
-
-    val processedBits = lookupFile.map( line => {
-
-
-    })
-//       filteredCDXitems1.show(10, truncate = false)
-    //
-    //    val table1 = filteredCDXitems1.registerTempTable("table1")
-    //
-    //    val CDXSelect = JobSparkConf.sc
-    //      .select(
-    //      "massaged_url",
-    //      "b_date",
-    //      "a_origina_url",
-    //      "m_mime_type_of_original_document",
-    //      "s_response_code",
-    //      "K_FBIS", "r_redirect",
-    //      "code_abrevation",
-    //      "V_compressed_arc_file_offset",
-    //      "file_name" from "table1"
-    //    ).toDF()
-
-  //  println(table1)
-//
-//    import ja.com.Common.toGetURLnew
-//    val filteredCDXitems2 = filteredCDXitems1
-//      .withColumn("new_url",toGetURLnew(a_origina_url ))
-
-
-
+    finalDF1.show(100, truncate = false)
   }
 }
