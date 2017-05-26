@@ -26,6 +26,7 @@ object Job2SaveToES {
     val rdd = sc.makeRDD(Seq(cdxItems))
 
     EsSpark.saveToEs(rdd, "spark/docs" , Map("es.nodes" -> "192.168.0.56"))
+
   }
 }
 

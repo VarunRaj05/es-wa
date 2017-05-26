@@ -1,4 +1,5 @@
 package ja.com
+
 import java.util.regex.Matcher
 
 import ja.com.Common.cdxItem
@@ -15,7 +16,7 @@ import scala.collection.mutable.ListBuffer
   * Created by Ja on 21/05/2017.
   */
 
-object Job1 {
+object Job2 {
   case class t(x : Long, y: String)
   case class allLines( linenumber: Long  , isvalidheader:Boolean ,isheader:Boolean, url:String, urltime:String, mime:String , line:String)
   case class finalOutput(ln: String, p_urltime:String, p_mime:String, p_url:String, line:String)
