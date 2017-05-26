@@ -153,6 +153,7 @@ object Job1 {
       " and fk4.url like concat('%',joinedTable.New_URL,'%')  " +
       "order by fk4.linenumber").toDF()
 
+
     finalDF1.registerTempTable("cdxJoinArcTable")
 
     finalDF1.printSchema()
