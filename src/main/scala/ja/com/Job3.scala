@@ -6,6 +6,7 @@ import java.util.regex.Matcher
 import ja.com.Common.cdxItem
 import ja.conf.JobSparkConf
 import org.apache.spark.sql.types.{LongType, StringType}
+import org.elasticsearch.spark.rdd.EsSpark
 import org.jsoup.Jsoup
 
 import scala.collection.mutable.ListBuffer
@@ -41,7 +42,10 @@ object Job3 {
     var arcfile = "/srcfileloc/*.arc"
     var cdxfile = "/srcfileloc/*.cdx"
     var dnsfiles = "/whiltelist/dns_*"
-    var username = "edureka"
+  //  var username = "edureka"
+    var username = "cloudera"
+    //var username = "root"
+
 
     if(args.length > 0) {
       val filelocation = args(0)
@@ -338,8 +342,25 @@ object Job3 {
 
 
         val fDf = JobSparkConf.sc.parallelize(finalData.toList).toDF("ln", "p_urltime", "p_mime", "p_url", "line")
-        fDf.coalesce(1).write.partitionBy("p_urltime","p_url").save("C:\\Users\\Ja\\Google Drive\\srcfile\\esoutput")
-    //
+        // fDf.coalesce(1).write.partitionBy("p_urltime","p_url").save("C:\\Users\\Ja\\Google Drive\\srcfile\\esoutput")
+    // fDf.coalesce(1).write.partitionBy("p_urltime","p_url").save("C:\\Users\\Ja\\Google Drive\\srcfile\\esoutput_parquet")
+
+   // fDf.coalesce(1).save("C:\\Users\\Ja\\Google Drive\\srcfile\\esoutput2\\esoutputfile.csv", "com.databricks.spark.csv")
+
+
+// fDf.coalesce(1).write.partitionBy("p_urltime","p_url").save("C:\\Users\\Ja\\Google Drive\\srcfile\\esoutput")
+ // fDf.coalesce(1).write.mode(SaveMode.Append).save("hdfs://139.162.54.153:8020/esoutput_270517_1618")
+  //  fDf.coalesce(1).write.mode(SaveMode.Append).save("hdfs://192.168.56.102:8020/es/esoutput_270517_1618")
+  //  fDf.write.mode(SaveMode.Append).save("hdfs://192.168.56.102:8020/es/esoutput_270517_1744")
+    //D(Seq(fDf))
+
+    EsSpark.saveToEs(fDf.rdd, "spark/docs" , Map("es.nodes" -> "192.168.0.56"))
+
+
+    // fDf.coalesce(1).write.mode(SaveMode.Append).save("hdfs://139.162.54.153:8020/esoutput_270517_1618")
+
+    // fDf.coalesce(1).write.partitionBy("p_urltime","p_url").format("avro").save("hdfs://192.168.56.102:8020/esoutput")
+
 
     // 20090831084108 - image/jpeg - http://www.biglotteryfund.org.uk/index/newsroom-uk/openevent_08_2.jpg--------
 

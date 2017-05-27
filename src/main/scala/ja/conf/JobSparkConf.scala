@@ -19,7 +19,14 @@ trait Conf {
 }
 object JobSparkConf extends Conf{
   val conf = new SparkConf()
-    .setAppName("Spark ETL Job").setMaster("local[*]")
+    .setAppName("Spark ETL Job").setMaster("local[1]")
+    .set("es.index.auto.create", "true")
+   // .set("es.nodes.client.only", "true")
+    .set("es.input.json", "true")
+    //.set("es.nodes.client.only", "true")
+    .set("es.nodes", "192.168.0.56")
+
+
  // conf.set("es.index.auto.create", "false")
     // .set("es.cluster", "my-application")  // TODO: my-application pip6fRVRQkGRE4PQ9yqXKA
   //  .set("es.node", "192.168.0.56")
