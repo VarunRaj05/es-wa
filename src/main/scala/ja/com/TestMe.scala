@@ -1,4 +1,4 @@
-package ja.temp
+package ja.com
 
 object TestMe {
   def main(args: Array[String]): Unit = {

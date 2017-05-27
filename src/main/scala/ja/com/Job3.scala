@@ -1,33 +1,28 @@
 package ja.com
 
+import java.io.FileOutputStream
 import java.util.regex.Matcher
 
 import ja.com.Common.cdxItem
 import ja.conf.JobSparkConf
-import org.apache.spark.sql.SaveMode
-import org.apache.spark.sql.functions.lit
 import org.apache.spark.sql.types.{LongType, StringType}
 import org.jsoup.Jsoup
 
 import scala.collection.mutable.ListBuffer
 
-// import ja.conf._
-/**
-  * Created by Ja on 21/05/2017.
-  */
-
-object Job1 {
+object Job3 {
   case class t(x : Long, y: String)
   case class allLines( linenumber: Long  , isvalidheader:Boolean ,isheader:Boolean, url:String, urltime:String, mime:String , line:String)
   case class finalOutput(ln: String, p_urltime:String, p_mime:String, p_url:String, line:String)
   import java.util.regex.Pattern
   val dataLinePattern = Pattern.compile("(\\d{14})")
 
+
   def isCurrentLineIsValidHeader(line:String, lstMimes: List[String] ) : Boolean  = {
 
-    if(lstMimes.exists(line.contains)) {
-      val matcher: Matcher = dataLinePattern.matcher(line)
-      matcher.find
+      if(lstMimes.exists(line.contains)) {
+        val matcher: Matcher = dataLinePattern.matcher(line)
+        matcher.find
 
     }
     else {
@@ -35,35 +30,66 @@ object Job1 {
     }
   }
   def isCurrentLineIsHeader(line:String) : Boolean  = {
-    val valid1 = (line.split(" ").length > 2)
-    val matcher: Matcher = dataLinePattern.matcher(line)
-    matcher.find && valid1
+      val valid1 = (line.split(" ").length > 2)
+      val matcher: Matcher = dataLinePattern.matcher(line)
+      matcher.find && valid1  //call ok
 
   }
 
-  def main(args: Array[String]): Unit = {
+  def main(args: Array[String]): Unit = {       // 2
 
-    /* val s = "com,google)/ 20090831083204 http://www.google.com/ text/html 302 MRIC3B6QBCMMI7MLO76A2P5ONACU4L7H - - 335 26267 EA-TNA-0709-biglotteryfund.org.uk-p-20090831083143-00000.arc.gz"
-     val sp = s.split(" ")
-     sp.foreach(println)*/
+    var arcfile = "/srcfileloc/*.arc"
+    var cdxfile = "/srcfileloc/*.cdx"
+    var dnsfiles = "/whiltelist/dns_*"
+    var username = "edureka"
 
-    // sc.textFile("myFile.gz")  sc.textFile("\*.gz")   // C:\Users\Ja\Google Drive\srcfile\srcfileloc
+    if(args.length > 0) {
+      val filelocation = args(0)
+      if (filelocation.equals("local")) {
+        arcfile = "C:\\Users\\Ja\\Google Drive\\srcfile\\Note\\srcfile\\EA-TNA-0709-biglotteryfund.org.uk-p-20090831083143-00000.arc"
+        cdxfile = "C:\\Users\\Ja\\Google Drive\\srcfile\\srcfileloc\\*.cdx"
+        dnsfiles = "C:\\Users\\Ja\\Google Drive\\oldfiles\\Note\\srcfile\\SearchWhitelist\\dns_*"
 
-    //val txtRDD = JobSparkConf.sc.textFile("C:\\Users\\Ja\\Google Drive\\srcfile\\srcfileloc\\*.*")
-    val txtRDD = JobSparkConf.sc.textFile("/srcfileloc/*.*")
+        println(arcfile)
+        println(cdxfile)
+        println(dnsfiles)
+      }
+    }
+
+    println(arcfile)
+    println(cdxfile)
+    println(dnsfiles)
+
+    val output = new FileOutputStream("application.conf")
+    System.setProperty("HADOOP_USER_NAME", username)
+
+    // ********************************************
+
+    val txtRDD = JobSparkConf.sc.textFile(cdxfile)
+    //val txtRDD = JobSparkConf.sc.textFile("/srcfileloc/*.CDX")
     val rddLines = txtRDD.mapPartitionsWithIndex { (idx, iter) => if (idx == 0) iter.drop(1) else iter }
+
     import JobSparkConf.sqlContext.implicits._
     val cdxItems = rddLines.map(x => cdxItem(x.split(" ")(0)
       ,x.split(" ")(1),x.split(" ")(2), x.split(" ")(3),
       x.split(" ")(4),x.split(" ")(5), x.split(" ")(6),
       x.split(" ")(7),x.split(" ")(8),x.split(" ")(9))
     ).toDF()
-    // robots.txt, .js and, .json extensions, and any files which returned an HTTP status code of 400
+
+    // robots.txt, .js and, .json extensions, and any files which returned an HTTP status code of 400
     val filteredCDXitems = cdxItems
       .filter(!(cdxItems("a_origina_url").endsWith("robots.txt")
         || cdxItems("a_origina_url").endsWith(".js")
         || cdxItems("a_origina_url").endsWith(".json")
         ))
+
+    println(filteredCDXitems)
+    filteredCDXitems.printSchema()
+
+    filteredCDXitems.show(10,truncate = false)
+
+    // ********************************************
+
 
     // s_response_code from 400  to 511
     import ja.com.Common._
@@ -79,7 +105,8 @@ object Job1 {
     //  filteredCDXitems1.show(10000,truncate = false)
     filteredCDXitems1.registerTempTable("mainT")
 
-    val inscopeDomains = JobSparkConf.sc.textFile("/whiltelist/dns_*")
+    // val inscopeDomains = JobSparkConf.sc.textFile("/whiltelist/dns_*")
+    val inscopeDomains = JobSparkConf.sc.textFile(dnsfiles)   //
     val domainsDf =   inscopeDomains.map( x => {
       if(x.indexOf("/") >= 0 )
         x.substring(0,x.indexOf("/")).replaceAll("\"", "")
@@ -88,22 +115,30 @@ object Job1 {
     }).toDF("domain")
 
 
-    println("count 1=" + domainsDf.count())
+    domainsDf.printSchema()
+    domainsDf.show(10,truncate = false)
+
+
+    // ********************************************
+
+    println(" line number 120 count 1=" + domainsDf.count())
     domainsDf.registerTempTable("domainT")
 
     //  domainsDf.show(10)
     val joinedDF = JobSparkConf.sqlContext.sql("select mainT.* from mainT inner join domainT" +
       " ON mainT.New_URL LIKE concat('%',domainT.domain,'%') ")
     joinedDF.registerTempTable("joinedTable")
+
     // joinedDF.show(100)
-
     // 20090831084108 - image/jpeg - http://www.biglotteryfund.org.uk/index/newsroom-uk/openevent_08_2.jpg-
-
     /// Arc file starts here
 
+    println(" line number 134 , count 1=" + joinedDF)
 
-    //val txtArcRDD = JobSparkConf.sc.textFile("C:\\Users\\Ja\\Google Drive\\srcfile\\Note\\srcfile\\EA-TNA-0709-biglotteryfund.org.uk-p-20090831083143-00000.arc")
-    val txtArcRDD = JobSparkConf.sc.textFile("/srcfileloc/EA-TNA-0709-biglotteryfund.org.uk-p-20090831083143-00000.arc")
+// *****************************************************
+
+    val txtArcRDD = JobSparkConf.sc.textFile(arcfile)
+    //val txtArcRDD = JobSparkConf.sc.textFile("/srcfileloc/EA-TNA-0709-biglotteryfund.org.uk-p-20090831083143-00000.arc")
     val indexedArcRDD = txtArcRDD.zipWithIndex
     import JobSparkConf.sqlContext.implicits._
     val mainDF = indexedArcRDD.toDF("line", "linenumber")
@@ -114,6 +149,11 @@ object Job1 {
     //" left join (select distinct m_mime_type_of_original_document mime from joinedTable) as t3 "
     //" on tmp1.line like concat('%',t3.mime,'%') where trim(tmp1.line) <> '' "
 
+
+    println(" line number 151 , count 1=" + query)
+
+
+    // *****************************************************
     val dfMimes = joinedDF.select(joinedDF("m_mime_type_of_original_document")).distinct().toDF("mime")
     //  dfMimes.registerTempTable("mimestable")
     //dfMimes.show(100)
@@ -126,6 +166,11 @@ object Job1 {
       println(x)
       lstMimes += x.getAs[String]("mime")
     })
+
+    println(" line number 168 , count 1=" + mlist)
+
+    // *****************************************************
+
     val broadcastVar = JobSparkConf.sc.broadcast(lstMimes.toList)
 
     val f1= JobSparkConf.sqlContext.sql(query).select("linenumber", "line").rdd
@@ -156,7 +201,10 @@ object Job1 {
       allLines( ln+1  , isvalidheader ,isheader,url,urltime,mimetype,  line)
 
     }).toDF().registerTempTable("fk4")
-    println("key - values")
+    println(" line number 202 , key - values")
+
+ // *****************************************************
+
     val arcDF = JobSparkConf.sqlContext.sql("select * from fk4 order by linenumber")
     //  arcDF.show(10)
     //joinedTable
@@ -167,8 +215,11 @@ object Job1 {
       "order by fk4.linenumber").toDF()
     finalDF1.persist()
     println("finalDF1 count =" + finalDF1.count())
+
     import org.apache.spark.sql.Row
+    import org.apache.spark.sql.functions._
     //|linenumber|isvalidheader|isheader|url  |urltime       |mime     |line |
+
     var initialDF = JobSparkConf.sqlContext.createDataFrame(JobSparkConf.sc.emptyRDD[Row], finalDF1.schema).withColumn("p_linenumberA", lit(null).cast(LongType))
       .withColumn("p_urltime", lit(null).cast(StringType)).withColumn("p_mime", lit(null).cast(StringType)).withColumn("p_url", lit(null).cast(StringType))
     // it will take time. .this is silly logic but ok for POC :) ok
@@ -178,6 +229,10 @@ object Job1 {
       val p_mime = x.getAs[String]("mime")
       val p_url = x.getAs[String]("url")
       // J alias name is missing its different
+
+  //  println(" line number 232 , key - values")
+
+      // ***************
 
       val q2  = s"select min(linenumber) ln from fk4 where linenumber > $p_linenumberA and isheader = true"
       val minDF = JobSparkConf.sqlContext.sql(q2).toDF()
@@ -196,6 +251,13 @@ object Job1 {
 
     })
 
+    println(" line number 253 , finalDF2")
+    println(finalDF2)
+
+
+    // *****************************************************
+
+
     // udf = concat( p_linenumberA,  p_urltime,  p_mime, p_url )  ?
     // withColumn("new_col", udf())
     // or we can create new concat column in sql
@@ -208,17 +270,24 @@ object Job1 {
       val p_url = x.getAs[String]("p_url")
       if(p_mime.contains("image/jpeg") || p_mime.contains("image/gif"))
       {
+
         ((ln, p_urltime, p_mime, p_url), line)
       }
       else {
         ((ln, p_urltime, p_mime, p_url), line)
       }
     }).reduceByKey((iter, lineval) => {
+      //Content-Length
 
       iter + " " + lineval
     })
 
+    println(" line number 284 , fileOuptut")
+    println(fileOuptut)
+
+    // *****************************************************
     var finalData = new ListBuffer[finalOutput]()
+
     fileOuptut.collect().foreach( x => {
       if(x._1._3.contains("text/html") ) {
 
@@ -246,7 +315,11 @@ object Job1 {
       }
       else if(x._1._3.contains("text/css") || x._1._3.contains("text/dns"))
       {
-        //println(x._1._2 + " - " + x._1._3 + " - " + x._1._4 + "--------" + x._2)
+        //println(x._1._2 + " - " + x._1._3 + " - " + x._1._4 + "--------" + x._2)// is it working?
+        // connection problem - it doesnt work here
+        //all paths are hdfs based.. u need to test this on VM
+        // yes but cloudera is down at the moment..pls call me
+
         finalData += finalOutput(x._1._1.toString  ,x._1._2 , x._1._3 , x._1._4 , x._2)
       }
       else  // if(x._1._3.contains("image/jpeg") || x._1._3.contains("image/gif"))
@@ -258,6 +331,16 @@ object Job1 {
     }
     )
 
+    println(" line number 334 , fileOuptut")
+    println(fileOuptut)
+
+    // *****************************************************
+
+
+        val fDf = JobSparkConf.sc.parallelize(finalData.toList).toDF("ln", "p_urltime", "p_mime", "p_url", "line")
+        fDf.coalesce(1).write.partitionBy("p_urltime","p_url").save("C:\\Users\\Ja\\Google Drive\\srcfile\\esoutput")
+    //
+
     // 20090831084108 - image/jpeg - http://www.biglotteryfund.org.uk/index/newsroom-uk/openevent_08_2.jpg--------
 
 
@@ -266,9 +349,35 @@ object Job1 {
     // finalDF1.printSchema()
     // finalDF1.show(100, truncate = false)
 
-    val fDf = JobSparkConf.sc.parallelize(finalData.toList).toDF("ln", "p_urltime", "p_mime", "p_url", "line")
-    fDf.coalesce(1).write.mode(SaveMode.Append).save("hdfs://139.162.54.153:8020/esf1")
+
+   //  fDf.coalesce(1).write.partitionBy("p_urltime","p_url").save("hdfs://139.162.54.153:8020/jatestfolder3")   // 192.168.56.102 139.162.54.153
+
+    //   fDf.saveAsTextFile("hdfs://139.162.54.153:8020/jatestfolder")
+    // fDf.coalesce(1).write.partitionBy("p_urltime","p_url").format("avro").save("hdfs://139.162.54.153:8020/esindex")
+
+    // fDf.coalesce(1).write.partitionBy("p_urltime","p_url").format("com.databricks.spark.avro").save("hdfs://127.0.0.1:8020/esoutput")
+
+    //  fDf.coalesce(1).write.partitionBy("p_urltime","p_url").format("avro").save("hdfs://192.168.56.102:8020/esindex")
+    //  fDf.coalesce(1).write.partitionBy("p_urltime","p_url").format("avro").save("hdfs://192.168.56.102:8020/esindex")
+
+    //fDf.coalesce(1).write.mode(SaveMode.Append).save("hdfs://127.0.0.1:8020/esoutput")
+    //fDf.saveAsTextFile("hdfs://192.168.56.101:8020/query20")
+
+    //  fDf.saveToEs(rdd, "spark/docs" , Map("es.nodes" -> "192.168.0.56")
+
+    // .df.filter("doctor > 5").write.format("com.databricks.spark.avro").save("/tmp/output")
+
+    // df.filter("doctor > 5").write.avro("/tmp/output")
+
+    //fDf.p
+    //fDf.patitionBy("").saveAsTextFile("hdfs://139.162.54.153:8020/jatestfolder1")
+    //countByNumber_sortedDsc.saveAsTextFile("hdfs://139.162.54.153:8020/jatestfolder")
+    // fDf.coalesce(1).write.mode(SaveMode.Append).save("hdfs://139.162.54.153:8020/jatestfolder")
     //.saveAsTextFile("hdfs://139.162.54.153:8020/query6_dir1_jagan1")
+    //println(" line number 202 , key - values")
+    // *****************************************************
 
   }
+
 }
+

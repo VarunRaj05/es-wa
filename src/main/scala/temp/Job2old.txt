@@ -1,22 +1,10 @@
-package ja.com
+package temp;
 
-import java.io.FileOutputStream
-import java.util.regex.Matcher
-
-import ja.com.Common.cdxItem
-import ja.conf.JobSparkConf
-import org.apache.spark.sql.functions.lit
-import org.apache.spark.sql.types.{LongType, StringType}
-import org.jsoup.Jsoup
-
-import scala.collection.mutable.ListBuffer
-
-// import ja.conf._
 /**
   * Created by Ja on 21/05/2017.
   */
 
-object Job2 {
+object Job2old {
   case class t(x : Long, y: String)
   case class allLines( linenumber: Long  , isvalidheader:Boolean ,isheader:Boolean, url:String, urltime:String, mime:String , line:String)
   case class finalOutput(ln: String, p_urltime:String, p_mime:String, p_url:String, line:String)
@@ -38,28 +26,14 @@ object Job2 {
   def isCurrentLineIsHeader(line:String) : Boolean  = {
       val valid1 = (line.split(" ").length > 2)
       val matcher: Matcher = dataLinePattern.matcher(line)
-      matcher.find && valid1  //call ok
+      matcher.find && valid1
 
   }
 
   def main(args: Array[String]): Unit = {
 
-    var arcfile = "/srcfileloc/*.arc"
-    var cdxfile = "/srcfileloc/*.cdx"
-    var dnsfiles = "/whiltelist/dns_*"
-    var username = "edureka"
-
-    if(args.length > 0) {
-      val filelocation = args(0)
-      if (filelocation.equals("local")) {
-        arcfile = "C:\\Users\\Ja\\Google Drive\\srcfile\\Note\\srcfile\\EA-TNA-0709-biglotteryfund.org.uk-p-20090831083143-00000.arc"
-        cdxfile = "C:\\Users\\Ja\\Google Drive\\srcfile\\srcfileloc\\*.cdx"
-        dnsfiles = "C:\\Users\\Ja\\Google Drive\\oldfiles\\Note\\srcfile\\SearchWhitelist\\dns_*"
-      }
-    }
-
     val output = new FileOutputStream("application.conf")
-    System.setProperty("HADOOP_USER_NAME", username)
+    System.setProperty("HADOOP_USER_NAME", "cloudera")
 
    /* val s = "com,google)/ 20090831083204 http://www.google.com/ text/html 302 MRIC3B6QBCMMI7MLO76A2P5ONACU4L7H - - 335 26267 EA-TNA-0709-biglotteryfund.org.uk-p-20090831083143-00000.arc.gz"
     val sp = s.split(" ")
@@ -67,15 +41,7 @@ object Job2 {
 
     // sc.textFile("myFile.gz")  sc.textFile("\*.gz")   // C:\Users\Ja\Google Drive\srcfile\srcfileloc
 
-
-//    /home/cloudera/Documents/srcfile/EA-TNA-0709-biglotteryfund.org.uk-p-20090831083143-00000.arc
-//    /home/cloudera/Documents/srcfile/EA-TNA-0709-biglotteryfund.org.uk-p-20090831083143-00000.cdx
-//    /home/cloudera/Documents/srcfile/SearchWhitelist/dns_*
-//    /home/cloudera/Documents/srcfile/*.*
-
-
-
-    val txtRDD = JobSparkConf.sc.textFile(cdxfile)
+    val txtRDD = JobSparkConf.sc.textFile("C:\\Users\\Ja\\Google Drive\\srcfile\\srcfileloc\\*.*")
     //val txtRDD = JobSparkConf.sc.textFile("/srcfileloc/*.CDX")
     val rddLines = txtRDD.mapPartitionsWithIndex { (idx, iter) => if (idx == 0) iter.drop(1) else iter }
     import JobSparkConf.sqlContext.implicits._
@@ -106,7 +72,7 @@ object Job2 {
     filteredCDXitems1.registerTempTable("mainT")
 
    // val inscopeDomains = JobSparkConf.sc.textFile("/whiltelist/dns_*")
-   val inscopeDomains = JobSparkConf.sc.textFile(dnsfiles)   //
+   val inscopeDomains = JobSparkConf.sc.textFile("C:\\Users\\Ja\\Google Drive\\oldfiles\\Note\\srcfile\\SearchWhitelist\\dns_*")   //
     val domainsDf =   inscopeDomains.map( x => {
               if(x.indexOf("/") >= 0 )
                 x.substring(0,x.indexOf("/")).replaceAll("\"", "")
@@ -129,7 +95,7 @@ object Job2 {
     /// Arc file starts here
 
 
-    val txtArcRDD = JobSparkConf.sc.textFile(arcfile)
+    val txtArcRDD = JobSparkConf.sc.textFile("C:\\Users\\Ja\\Google Drive\\srcfile\\Note\\srcfile\\EA-TNA-0709-biglotteryfund.org.uk-p-20090831083143-00000.arc")
     //val txtArcRDD = JobSparkConf.sc.textFile("/srcfileloc/EA-TNA-0709-biglotteryfund.org.uk-p-20090831083143-00000.arc")
     val indexedArcRDD = txtArcRDD.zipWithIndex
     import JobSparkConf.sqlContext.implicits._
@@ -242,10 +208,10 @@ object Job2 {
           ((ln, p_urltime, p_mime, p_url), line)
         }
     }).reduceByKey((iter, lineval) => {
-      //Content-Length
 
       iter + " " + lineval
     })
+
 var finalData = new ListBuffer[finalOutput]()
       fileOuptut.collect().foreach( x => {
         if(x._1._3.contains("text/html") ) {
@@ -290,10 +256,6 @@ var finalData = new ListBuffer[finalOutput]()
       }
     )
 
-//    val fDf = JobSparkConf.sc.parallelize(finalData.toList).toDF("ln", "p_urltime", "p_mime", "p_url", "line")
-//    fDf.coalesce(1).write.partitionBy("p_urltime","p_url").save("C:\\Users\\Ja\\Google Drive\\srcfile\\esoutput")
-//
-
     // 20090831084108 - image/jpeg - http://www.biglotteryfund.org.uk/index/newsroom-uk/openevent_08_2.jpg--------
 
 
@@ -302,19 +264,14 @@ var finalData = new ListBuffer[finalOutput]()
    // finalDF1.printSchema()
    // finalDF1.show(100, truncate = false)
 
-
+    val fDf = JobSparkConf.sc.parallelize(finalData.toList).toDF("ln", "p_urltime", "p_mime", "p_url", "line")
     // fDf.coalesce(1).write.partitionBy("p_urltime","p_url").save("hdfs://139.162.54.153:8020/jatestfolder3")   // 192.168.56.102 139.162.54.153
 
-   //   fDf.saveAsTextFile("hdfs://139.162.54.153:8020/jatestfolder")
-    // fDf.coalesce(1).write.partitionBy("p_urltime","p_url").format("avro").save("hdfs://139.162.54.153:8020/esindex")
 
-    // fDf.coalesce(1).write.partitionBy("p_urltime","p_url").format("com.databricks.spark.avro").save("hdfs://127.0.0.1:8020/esoutput")
+  //  fDf.coalesce(1).write.partitionBy("p_urltime","p_url").format("com.databricks.spark.avro").save("hdfs://192.168.56.102:8020/jatestfolder3")
+    fDf.coalesce(1).write.partitionBy("p_urltime","p_url").save("hdfs://192.168.56.102:8020/jatestfolder3")
+    // fDf.coalesce(1).write.partitionBy("p_urltime","p_url").format("avro").save("hdfs://192.168.56.102:8020/jatestfolder3")
 
-   //  fDf.coalesce(1).write.partitionBy("p_urltime","p_url").format("avro").save("hdfs://192.168.56.102:8020/esindex")
-  //  fDf.coalesce(1).write.partitionBy("p_urltime","p_url").format("avro").save("hdfs://192.168.56.102:8020/esindex")
-
-     //fDf.coalesce(1).write.mode(SaveMode.Append).save("hdfs://127.0.0.1:8020/esoutput")
-       //fDf.saveAsTextFile("hdfs://192.168.56.101:8020/query20")
 
     //  fDf.saveToEs(rdd, "spark/docs" , Map("es.nodes" -> "192.168.0.56")
 
