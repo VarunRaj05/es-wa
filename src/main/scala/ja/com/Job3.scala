@@ -5,8 +5,8 @@ import java.util.regex.Matcher
 
 import ja.com.Common.cdxItem
 import ja.conf.JobSparkConf
+import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.types.{LongType, StringType}
-import org.elasticsearch.spark.rdd.EsSpark
 import org.jsoup.Jsoup
 
 import scala.collection.mutable.ListBuffer
@@ -14,7 +14,10 @@ import scala.collection.mutable.ListBuffer
 object Job3 {
   case class t(x : Long, y: String)
   case class allLines( linenumber: Long  , isvalidheader:Boolean ,isheader:Boolean, url:String, urltime:String, mime:String , line:String)
-  case class finalOutput(ln: String, p_urltime:String, p_mime:String, p_url:String, line:String)
+  case class finalOutput(ln: String, p_urltime:String, p_mime:String, p_url:String,
+                         line:String, title:String, metadata:String,contentLength: String,etag:String,
+                         htmldate:String,lastmodifieddate:String,
+                        imageData : String)
   import java.util.regex.Pattern
   val dataLinePattern = Pattern.compile("(\\d{14})")
 
@@ -42,8 +45,8 @@ object Job3 {
     var arcfile = "/srcfileloc/*.arc"
     var cdxfile = "/srcfileloc/*.cdx"
     var dnsfiles = "/whiltelist/dns_*"
-  //  var username = "edureka"
-    var username = "cloudera"
+    var username = "edureka"
+   // var username = "cloudera"
     //var username = "root"
 
 
@@ -268,13 +271,21 @@ object Job3 {
     //initialDF.show(100, truncate = false)
     val fileOuptut = initialDF.map( x =>{
       val ln = x.getAs[Long]("p_linenumberA")
-      val line = x.getAs[String]("line")
+      var line = x.getAs[String]("line")
       val p_urltime = x.getAs[String]("p_urltime")
       val p_mime = x.getAs[String]("p_mime")
       val p_url = x.getAs[String]("p_url")
       if(p_mime.contains("image/jpeg") || p_mime.contains("image/gif"))
       {
-
+        var igLine:Boolean = false
+          line.foreach(x =>{
+            if(x.toInt > 128)
+              igLine = true
+          }
+        )
+        if(igLine)
+          line = ""
+        line = line.filter(_ >= ' ').replaceAll("\\u0001\\u0002\\u0003\\u0003\\u0005\\u0004\\u0005\\t\\u0006\\u0006", "")
         ((ln, p_urltime, p_mime, p_url), line)
       }
       else {
@@ -283,7 +294,7 @@ object Job3 {
     }).reduceByKey((iter, lineval) => {
       //Content-Length
 
-      iter + " " + lineval
+      iter + "æ" + lineval
     })
 
     println(" line number 284 , fileOuptut")
@@ -291,16 +302,57 @@ object Job3 {
 
     // *****************************************************
     var finalData = new ListBuffer[finalOutput]()
+    var title = ""
+    var metadata = ""
+    /*Date: Mon, 31 Aug 2009 10:09:48 GMT
+      Server: Microsoft-IIS/6.0
+    X-Powered-By: ASP.NET
+    Content-Type: text/xml
+    Last-Modified: Fri, 24 Jul 2009 15:53:53 GMT
+      ETag: "b528a7a3-01010001"
+    Content-Length: 607*/
+
+    var contentLength = ""
+    var etag = ""
+    var lastmodified = ""
+    var htmldate = ""
 
     fileOuptut.collect().foreach( x => {
+      val sub_lines = x._2.split("\n")
+      sub_lines.foreach( s => {
+        if( s.contains("Date:")) {
+          htmldate = s.substring(s.indexOf("Date:") + 5)
+          htmldate = htmldate.substring(0, htmldate.indexOf("æ")).trim()
+        }
+        if( s.contains("ETag:") ) {
+          etag = s.substring(s.indexOf("ETag:") + 6)
+          etag = etag.substring(0, etag.indexOf("æ")).trim()
+        }
+        if( s.contains("Content-Length:") ) {
+          contentLength = s.substring(s.indexOf("Content-Length:") + "Content-Length:".length)
+          contentLength = contentLength.substring(0, contentLength.indexOf("æ")).trim()
+        }
+        if( s.contains("Last-Modified:") ) {
+          lastmodified = s.substring(s.indexOf("Last-Modified:") + "Last-Modified:".length)
+          lastmodified = lastmodified.substring(0, lastmodified.indexOf("æ")).trim()
+        }
+
+      })
+
       if(x._1._3.contains("text/html") ) {
 
         val doc1 = Jsoup.parse(x._2)
-        val text = doc1.body.text
-        finalData += finalOutput(x._1._1.toString  ,x._1._2 , x._1._3 , x._1._4 , text)
+        val text = doc1.body.text.replaceAll("æ", "")
+        title = if(!doc1.select("title").isEmpty ) doc1.select("title").first.text else ""
+        metadata = if(!doc1.select("meta").isEmpty)  doc1.select("meta").first.attr("content") else ""
+        //contentLength: String,etag:String,
+        //htmldate:String,lastmodifieddate:String,
+        finalData += finalOutput(x._1._1.toString  ,x._1._2 , x._1._3 , x._1._4 , text, title, metadata
+        ,contentLength, etag, htmldate, lastmodified, "")
       }
       else if(x._1._3.contains("text/xml"))
       {
+
 
         val inputstring = x._2.substring( x._2.indexOf("<?xml version="))
         println("***********************************************************inut string " + inputstring)
@@ -314,7 +366,10 @@ object Job3 {
         }catch{
           case e:Exception => finalstring = "Error Parsing - Original Text:" + x._2
         }
-        finalData += finalOutput(x._1._1.toString  ,x._1._2 , x._1._3 , x._1._4 , finalstring)
+
+        finalstring = finalstring.replaceAll("æ", "")
+        finalData += finalOutput(x._1._1.toString  ,x._1._2 , x._1._3 , x._1._4 , finalstring, title, metadata
+          ,contentLength, etag, htmldate, lastmodified, "")
         //println(x._1._2 + " - " + x._1._3 + " - " + x._1._4 + "--------" + finalstring)
       }
       else if(x._1._3.contains("text/css") || x._1._3.contains("text/dns"))
@@ -323,14 +378,24 @@ object Job3 {
         // connection problem - it doesnt work here
         //all paths are hdfs based.. u need to test this on VM
         // yes but cloudera is down at the moment..pls call me
-
-        finalData += finalOutput(x._1._1.toString  ,x._1._2 , x._1._3 , x._1._4 , x._2)
+        val data = x._2.replaceAll("æ", "")
+        finalData += finalOutput(x._1._1.toString  ,x._1._2 , x._1._3 , x._1._4 , data, title, metadata
+          ,contentLength, etag, htmldate, lastmodified, "")
+      }
+      else if(x._1._3.contains("image/jpeg") || x._1._3.contains("image/gif"))
+      {
+        if(!x._2.isEmpty) {
+          val data = x._2.replaceAll("æ", "")
+          finalData += finalOutput(x._1._1.toString, x._1._2, x._1._3, x._1._4, data, title, metadata
+            ,contentLength, etag, htmldate, lastmodified, "")
+        }
       }
       else  // if(x._1._3.contains("image/jpeg") || x._1._3.contains("image/gif"))
       {
         //println(x._2)
-        //val inputtext = x._2.substring(0, x._2.indexOf("  "))
-        finalData += finalOutput(x._1._1.toString  ,x._1._2 , x._1._3 , x._1._4 , x._2)
+        val data = x._2.replaceAll("æ", "")
+        finalData += finalOutput(x._1._1.toString  ,x._1._2 , x._1._3 , x._1._4 , data, title, metadata
+          ,contentLength, etag, htmldate, lastmodified, "")
       }
     }
     )
@@ -341,7 +406,27 @@ object Job3 {
     // *****************************************************
 
 
-        val fDf = JobSparkConf.sc.parallelize(finalData.toList).toDF("ln", "p_urltime", "p_mime", "p_url", "line")
+        val fDf1 = JobSparkConf.sc.parallelize(finalData.toList).toDF("ln", "p_urltime", "p_mime", "p_url", "line","title","metadata"
+        , "contentLength", "etag", "htmldate", "lastmodifieddate", "imageData")
+
+/*
+    def createUIDforResponse(df: DataFrame, sid: String) : DataFrame = {
+      df.withColumn("createdUid", udf((str: String, surveyid: String)=>
+
+        str + "_" + surveyid).apply(df("uuid"), lit(sid)))
+    }*/
+
+       /* val fDf = fDf1.withColumn("line",
+          udf((title: String) =>
+            if (title == null) title else {
+              title
+            } )
+            .apply(fDf1("p_url")))
+*/
+ //   fDf1.write.json("C:\\Users\\Ja\\Google Drive\\srcfile\\esoutput_json\\esoutput10.json")
+    fDf1.coalesce(1).write.mode(SaveMode.Append).format("json").save("hdfs://139.162.54.153:8020/esoutput_280517_1730")
+
+   //  EsSpark.saveToEs(fDf.rdd, "spark/docs" , Map("es.nodes" -> "192.168.0.56"))
         // fDf.coalesce(1).write.partitionBy("p_urltime","p_url").save("C:\\Users\\Ja\\Google Drive\\srcfile\\esoutput")
     // fDf.coalesce(1).write.partitionBy("p_urltime","p_url").save("C:\\Users\\Ja\\Google Drive\\srcfile\\esoutput_parquet")
 
@@ -354,7 +439,7 @@ object Job3 {
   //  fDf.write.mode(SaveMode.Append).save("hdfs://192.168.56.102:8020/es/esoutput_270517_1744")
     //D(Seq(fDf))
 
-    EsSpark.saveToEs(fDf.rdd, "spark/docs" , Map("es.nodes" -> "192.168.0.56"))
+    // EsSpark.saveToEs(fDf.rdd, "spark/docs" , Map("es.nodes" -> "192.168.0.56"))
 
 
     // fDf.coalesce(1).write.mode(SaveMode.Append).save("hdfs://139.162.54.153:8020/esoutput_270517_1618")

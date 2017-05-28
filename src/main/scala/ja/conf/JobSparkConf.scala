@@ -25,6 +25,15 @@ object JobSparkConf extends Conf{
     .set("es.input.json", "true")
     //.set("es.nodes.client.only", "true")
     .set("es.nodes", "192.168.0.56")
+    .set("es.port", "9200")   // elasticsearch.url: "http://192.168.0.56:9200/"
+    .set("elasticsearch.url", "http://192.168.0.56:9200")
+
+    .set("http.enabled", "true")
+    .set("node.data", "true")
+    .set("node.master", "true")
+    .set("node.ingest", "true")
+
+
 
 
  // conf.set("es.index.auto.create", "false")
@@ -46,6 +55,8 @@ object JobSparkConf extends Conf{
   System.setProperty("spark.ui.showConsoleProgress", "false")
   Logger.getLogger("org").setLevel(Level.WARN)
   Logger.getLogger("akka").setLevel(Level.WARN)
+  Logger.getLogger("elasticsearch").setLevel(Level.WARN)
+
 
   // Enable snappy compression for Avro
   //   hiveContext.setConf("spark.sql.avro.compression.codec", "snappy")

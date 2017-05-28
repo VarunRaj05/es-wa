@@ -2,13 +2,16 @@ package ja.com
 
 object TestMe {
   def main(args: Array[String]): Unit = {
-
+    var s = "123æ23æ234"
+    println(s.replaceAll("æ", "-"))
+/*
     val xmlString = "<?xml version=\"1.0\" encoding=\"utf-8\"?><swfData width=\"330\" height=\"300\" minflashversion=\"7\" src=\"video-player-2008.swf\"><photoUrl>open_meeting_sirclive.jpg</photoUrl><photoTitle><![CDATA[Sir Clive Booth and Diana Leat]]></photoTitle><recipient></recipient><project></project><copyright></copyright><date></date><programmes><![CDATA[]]></programmes><events>Open Meeting 2007</events><location></location><caption><![CDATA[Sir Clive Booth and Diana Leat]]></caption></swfData>"
 
     val raw = xml.XML.loadString(xmlString)
     raw.child.foreach(x => {
       if(!x.text.isEmpty)  print(x.text + ";")
     })
+*/
    /* val doc = Jsoup.parse(html)
     println(doc)
 

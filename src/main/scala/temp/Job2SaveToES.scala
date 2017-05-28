@@ -16,9 +16,9 @@ object Job2SaveToES {
     val lastWeekTrip = Trip("MUC", "OTP")
 
     val rdd = JobSparkConf.sc.makeRDD(Seq(upcomingTrip, lastWeekTrip))
-    EsSpark.saveToEs(rdd, "spark/docs")
+   // EsSpark.saveToEs(rdd, "spark/docs")
 
-
+    EsSpark.saveToEs(rdd, "spark/docs", Map("es.mapping.id" -> "id"))
   }
 }
 
